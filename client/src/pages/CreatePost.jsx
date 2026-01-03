@@ -2,17 +2,57 @@ import React, { useState } from 'react'
 import { dummyUserData } from '../assets/assets'
 import { Image, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useSelector } from 'react-redux'
+import { useAuth } from '@clerk/clerk-react'
+import api from '../api/axios'
+import { useNavigate } from 'react-router-dom'
 
 const CreatePost = () => {
 
+    const navigate = useNavigate()
     const [content, setContent] = useState('')
     const [images, setImages] = useState([])
     const [loading, setLoading] = useState(false)
 
-    const user = dummyUserData;
+    const user = useSelector((state) => state.user.value)
+
+    const { getToken } = useAuth()
 
     const handleSubmit = async () => {
+        if (!images.length && !content) {
+            return toast.error('Please add at least one image or text')
+        }
+        setLoading(true)
 
+        const postType = images.length && content ? 'text_with_image' : images.length ? 'image' : 'text'
+
+        try {
+            const formData = new FormData()
+            formData.append('content', content)
+            formData.append('post_type', postType)
+            images.map((image) => {
+                formData.append('images', image)
+            })
+
+            const { data } = await api.post('/api/post/add', formData, {
+                headers: {
+                    Authorization: `Bearer ${await getToken()}`
+                }
+            })
+
+            if (data.success) {
+                navigate('/')
+            } else {
+                console.log(data.message)
+                throw new Error(data.message)
+            }
+
+        } catch (error) {
+            console.log(error.message)
+            throw new Error(error.message)
+
+        }
+        setLoading(false)
     }
 
     return (
@@ -33,7 +73,7 @@ const CreatePost = () => {
                         <img
                             src={user.profile_picture}
                             alt=""
-                            className='w-12 h-12 rounded-full shadow'
+                            className='w-12 h-12 object-cover rounded-full shadow'
                         />
                         <div>
                             <h2 className='font-semibold'>{user.full_name}</h2>

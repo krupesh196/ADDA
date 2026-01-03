@@ -5,16 +5,22 @@ import Message from '../models/Message.js'
 // Create an empty object to store SS event connections
 const connections = {}
 
-// Controller function for the SSE endpoint
+// Controller function for the SSE endpoint    const { userId } = req.params
 export const sseController = (req, res) => {
+
     const { userId } = req.params
-    console.log('New client connected : ', userId)
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Conntrol', 'no-cache')
+    res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('Access-Control-Allow-Origin', '*')
+
+    if (!userId) {
+        res.write('error: No User ID provided\n\n');
+        res.end();
+        return;
+    }
 
     // Add the client's response object to the connections object
     connections[userId] = res
@@ -26,7 +32,7 @@ export const sseController = (req, res) => {
     req.on('close', () => {
         // Remove the client's response object from the connections array
         delete connections[userId]
-        console.log('Client disconnected')
+
     })
 }
 
@@ -89,11 +95,12 @@ export const getChatMessages = async (req, res) => {
             $or: [
                 { from_user_id: userId, to_user_id },
                 { from_user_id: to_user_id, to_user_id: userId },
-            ]
+            ],
+            deletedBy: { $ne: userId }
         }).sort({ createdAt: -1 })
 
         // mark messages as seen
-        await Message.updateMany({ from_user_id: to_user_id, to_user_id: userId }, { seen: true })
+        await Message.updateMany({ from_user_id: to_user_id, to_user_id: userId }, { isRead: true })
 
         res.json({ success: true, messages })
 
@@ -106,12 +113,51 @@ export const getChatMessages = async (req, res) => {
 export const getUserRecentMessages = async (req, res) => {
     try {
         const { userId } = req.auth()
-        const messages = await Message.find({ to_user_id: userId }.populate('from_user_id to_user_id')).sort({ createdAt: -1 })
+        const messages = await Message.find({
+            $or: [
+                { to_user_id: userId },
+                { from_user_id: userId }
+            ]
+        })
+            .populate('from_user_id to_user_id')
+            .sort({ createdAt: -1 })
 
         res.json({ success: true, messages })
 
     } catch (error) {
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export const deleteMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId } = req.auth()
+
+        await Message.findByIdAndUpdate(id, {
+            $addToSet: { deletedBy: userId }
+        });
+
+        res.json({ success: true, message: 'Message deleted for you' })
+
+    } catch (error) {
         console.log(error)
+        resjson({ success: false, message: error.message })
+    }
+}
+
+export const deleteConversation = async (req, res) => {
+    try {
+        const { userId } = req.auth()
+        const { userId: otherId } = req.params
+        await Message.deleteMany({
+            $or: [
+                { from_user_id: userId, to_user_id: otherId },
+                { from_user_id: otherId, to_user_id: userId }
+            ]
+        })
+        res.json({ success: true, message: 'Conversation deleted' })
+    } catch (error) {
         res.json({ success: false, message: error.message })
     }
 }

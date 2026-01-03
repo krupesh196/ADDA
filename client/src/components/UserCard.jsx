@@ -1,17 +1,56 @@
 import React from 'react'
 import { dummyUserData } from '../assets/assets'
 import { MapPin, MessageCircle, Plus, UserPlus } from 'lucide-react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useAuth } from '@clerk/clerk-react'
+import { useNavigate } from 'react-router-dom'
+import api from '../api/axios'
+import toast from 'react-hot-toast'
+import { fetchUser } from '../features/user/userSlice'
 
 const UserCard = ({ user }) => {
 
-    const currentUser = dummyUserData
+    const currentUser = useSelector((state) => state.user.value)
+    const { getToken } = useAuth()
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
 
     const handleFollow = async () => {
-
+        try {
+            const { data } = await api.post('/api/user/follow', { id: user._id }, {
+                headers: { Authorization: `Bearer ${await getToken()}` }
+            })
+            if (data.success) {
+                toast.success(data.message)
+                dispatch(fetchUser(await getToken()))
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
     const handleConnectionRequest = async () => {
+        const isAlreadyConnected = currentUser.connections.some(conn =>
+            (typeof conn === 'string' ? conn === user._id : conn._id === user._id)
+        );
 
+        if (isAlreadyConnected) {
+            return navigate('/messages/' + user._id)
+        }
+        try {
+            const { data } = await api.post('/api/user/connect', { id: user._id }, {
+                headers: { Authorization: `Bearer ${await getToken()}` }
+            })
+            if (data.success) {
+                toast.success(data.message)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
     return (
@@ -23,9 +62,13 @@ const UserCard = ({ user }) => {
                 <img
                     src={user.profile_picture}
                     alt=""
-                    className='rounded-full w-16 shadow-md mx-auto'
+                    className='rounded-full w-16 h-16 object-cover shadow-md mx-auto'
                 />
-                <p className='mt-4 font-semibold'>{user.full_name}</p>
+                <p
+                    className='mt-4 font-semibold cursor-pointer'
+                    onClick={() => navigate(`/profile/${user._id}`)}
+                >{user.full_name}
+                </p>
                 {
                     user.username && <p className='text-gray-500 font-light'>@{user.username}</p>
                 }
@@ -44,6 +87,7 @@ const UserCard = ({ user }) => {
             </div>
 
             <div className='flex mt-4 gap-2'>
+
                 {/* Follow Button */}
                 <button
                     onClick={handleFollow}

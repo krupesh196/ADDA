@@ -9,10 +9,28 @@ import userRouter from './routes/userRoutes.js';
 import postRouter from './routes/postRoutes.js';
 import storyRouter from './routes/storyRoutes.js';
 import messageRouter from './routes/messageRoutes.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
 const app = express();
+const PORT = process.env.PORT || 4000;
+
+const httpServer = createServer(app);
+
+const io = new Server(httpServer, {
+    cors: {
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST", "PUT", "DELETE"],
+        credentials: true
+    }
+});
 
 await connectDB();
+
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 
 app.use(express.json());
 app.use(cors());
@@ -25,6 +43,4 @@ app.use('/api/post', postRouter)
 app.use('/api/story', storyRouter)
 app.use('/api/message', messageRouter)
 
-const PORT = process.env.PORT || 4000;
-
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
+httpServer.listen(PORT, () => console.log(`Server is running on port ${PORT}`))

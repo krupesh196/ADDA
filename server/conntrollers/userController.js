@@ -154,14 +154,39 @@ export const unfollowUser = async (req, res) => {
         const { id } = req.body;
 
         const user = await User.findById(userId)
-        user.following = user.following.filter(user => user !== id)
-        await user.save()
+        const targetUser = await User.findById(id)
 
-        const toUser = await User.findById(id)
-        toUser.followers = toUser.followers.filter(user => user !== userId)
-        await toUser.save()
+        if (!targetUser) {
+            return res.json({ success: false, message: 'User not found' })
+        }
 
-        res.json({ success: true, message: 'You are no longer following this user' })
+        if (user.following.includes(id)) {
+            user.following = user.following.filter(u => u.toString() !== id)
+            await user.save()
+        }
+
+        if (targetUser.followers.includes(userId)) {
+            targetUser.followers = targetUser.followers.filter(u => u.toString() !== userId)
+            await targetUser.save()
+        }
+        if (user.connections.includes(id)) {
+            user.connections = user.connections.filter(u => u.toString() !== id)
+            await user.save()
+        }
+
+        if (targetUser.connections.includes(userId)) {
+            targetUser.connections = targetUser.connections.filter(u => u.toString() !== userId)
+            await targetUser.save()
+        }
+
+        await Connection.findOneAndDelete({
+            $or: [
+                { from_user_id: userId, to_user_id: id },
+                { from_user_id: id, to_user_id: userId },
+            ]
+        })
+
+        res.json({ success: true, message: `You have unfollowed and disconnected from @${targetUser.username}` })
 
     } catch (error) {
         console.log(error)
@@ -238,7 +263,7 @@ export const getUserConnections = async (req, res) => {
 export const acceptConnectionRequest = async (req, res) => {
     try {
         const { userId } = req.auth()
-        const { id } = req.body;
+        const { id } = req.body
 
         const connection = await Connection.findOne({ from_user_id: id, to_user_id: userId })
 
@@ -246,22 +271,30 @@ export const acceptConnectionRequest = async (req, res) => {
             return res.json({ success: false, message: 'Connection not found' })
         }
 
-        const user = await User.findById(userId)
-        user.connections.push(id)
-        await user.save()
+        await User.findByIdAndUpdate(userId, {
+            $addToSet: {
+                connections: id,
+                following: id,
+                followers: id
+            }
+        });
 
-        const toUser = await User.findById(id)
-        toUser.connections.push(userId)
-        await toUser.save()
+        const targetUser = await User.findByIdAndUpdate(id, {
+            $addToSet: {
+                connections: userId,
+                following: userId,
+                followers: userId
+            }
+        })
 
-        connection.status = 'accepted'
-        await connection.save()
+        connection.status = 'accepted';
+        await connection.save();
 
-        res.json({ success: true, message: 'Connection accepted successfully' })
+        res.json({ success: true, message: `You are now connected with and following @${targetUser.username}` })
 
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
 }
 
@@ -270,11 +303,29 @@ export const getUserprofiles = async (req, res) => {
     try {
         const { profileId } = req.body
         const profile = await User.findById(profileId)
+        
         if (!profile) {
             return res.json({ success: false, message: 'Profile not found' })
         }
-        const posts = await Post.find({ user: profileId }).populate('user')
-        res.json({ success: true, profile, posts })
+
+        const posts = await Post.find({ user: profileId })
+            .populate('user')
+            .populate({
+                path: 'comments.user',
+                select: 'username full_name profile_picture'
+            })
+            .sort({ createdAt: -1 })
+
+        const likedPosts = await Post.find({ likes_count: profileId }) 
+            .populate('user')
+            .populate({
+                path: 'comments.user',
+                select: 'username full_name profile_picture'
+            })
+            .sort({ createdAt: -1 })
+
+        res.json({ success: true, profile, posts, likedPosts })
+
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })

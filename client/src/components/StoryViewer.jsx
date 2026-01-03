@@ -1,7 +1,10 @@
 import { BadgeCheck, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const StoryViewer = ({ viewStory, setViewStory }) => {
+
+    const navigate = useNavigate()
 
     const [progress, setProgress] = useState(0)
 
@@ -94,7 +97,7 @@ const StoryViewer = ({ viewStory, setViewStory }) => {
                     className='size-7 sm:size-8 rounded-full object-cover border border-white'
                 />
                 <div className='text-white font-medium flex items-center gap-1.5'>
-                    <span>{viewStory.user?.full_name}</span>
+                    <span onClick={() => navigate(`/profile/${viewStory.user._id}`)} className='cursor-pointer'>{viewStory.user?.username}</span>
                     <BadgeCheck size={15} />
                 </div>
             </div>

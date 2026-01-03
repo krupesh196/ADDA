@@ -4,18 +4,34 @@ import { Plus, Video } from 'lucide-react'
 import moment from 'moment'
 import StoryModal from './StoryModal'
 import StoryViewer from './StoryViewer'
+import { useAuth } from '@clerk/clerk-react'
+import api from '../api/axios'
+import toast from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 
 const StoriesBar = () => {
+
+    const { getToken } = useAuth()
+    const navigate = useNavigate()
 
     const [stories, setStories] = useState([])
     const [showModal, setShowModal] = useState(false)
     const [viewStory, setViewStory] = useState(null)
 
     const fetchStories = async () => {
-        const filteredStories = dummyStoriesData.filter(story =>
-            moment(story.createdAt).isAfter(moment().subtract(24, 'hours'))
-        )
-        setStories(filteredStories)
+        try {
+            const token = await getToken()
+            const { data } = await api.get('/api/story/get', {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            if (data.success) {
+                setStories(data.stories)
+            } else {
+                toast(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
     useEffect(() => {
@@ -53,9 +69,6 @@ const StoriesBar = () => {
                                 alt=""
                                 className='absolute size-8 top-3 left-3 z-10 rounded-full ring ring-gray-100 shadow'
                             />
-                            <p className='absolute top-18 left-3 text-white/60 text-sm truncate max-w-24'>
-                                {story.content}
-                            </p>
                             <p className='text-white absolute bottom-1 right-2 z-10 text-xs'>
                                 {moment(story.createdAt).fromNow()}
                             </p>

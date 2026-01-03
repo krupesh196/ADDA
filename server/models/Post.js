@@ -21,6 +21,23 @@ const postSchema = new mongoose.Schema({
         type: String,
         ref: 'User'
     }],
+    comments: [
+        {
+            user: {
+                type: String,
+                ref: "User",
+                required: true,
+            },
+            text: {
+                type: String,
+                required: true,
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now,
+            },
+        },
+    ],
 }, { timestamps: true, minimize: false })
 
 const Post = mongoose.model('Post', postSchema)

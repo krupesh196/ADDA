@@ -8,7 +8,7 @@ import {
     getUserprofiles,
     sendConnectionRequest,
     unfollowUser,
-    updateUserData
+    updateUserData,
 } from '../conntrollers/userController.js'
 import { protect } from '../middlewares/auth.js'
 import { upload } from '../configs/multer.js'

@@ -6,24 +6,62 @@ import UserProfileInfo from '../components/UserProfileInfo'
 import PostCard from '../components/PostCard'
 import moment from 'moment'
 import Profilemodal from '../components/Profilemodal'
+import { useAuth } from '@clerk/clerk-react'
+import toast from 'react-hot-toast'
+import { useSelector } from 'react-redux'
+import api from '../api/axios'
 
 const Profile = () => {
 
+  const currentUser = useSelector((state) => state.user.value)
+
+  const { getToken } = useAuth()
   const { profileId } = useParams()
 
+  const [likedPosts, setLikedPosts] = useState([])
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([null])
   const [activeTab, setActiveTab] = useState('posts')
   const [showEdit, setShowEdit] = useState(false)
 
-  const fetchUser = async () => {
-    setUser(dummyUserData)
-    setPosts(dummyPostsData)
+  const fetchUser = async (customId) => {
+    const token = await getToken()
+    try {
+      const targetId = customId || profileId || (currentUser && currentUser._id)
+
+      const { data } = await api.post(`/api/user/profiles`, { profileId: targetId }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (data.success) {
+        setUser(data.profile)
+        setPosts(data.posts)
+        setLikedPosts(data.likedPosts || [])
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const handlePostDelete = (deletedPostId) => {
+    setPosts((prevPosts) => prevPosts.filter((post) => post._id !== deletedPostId));
+    if (user) {
+      setUser((prev) => ({ ...prev, posts_count: prev.posts_count - 1 }));
+    }
+  }
+
+  const refreshProfileData = () => {
+    fetchUser(profileId || currentUser._id);
   }
 
   useEffect(() => {
-    fetchUser()
-  }, [])
+    if (profileId) {
+      fetchUser(profileId)
+    } else {
+      fetchUser(currentUser._id)
+    }
+  }, [profileId, currentUser])
 
   return user ? (
     <div className='relative h-full overflow-y-scroll bg-gray-50 p-6'>
@@ -78,37 +116,52 @@ const Profile = () => {
                   <PostCard
                     key={post._id}
                     post={post}
+                    onDelete={handlePostDelete}
                   />)}
             </div>
           )}
 
           {/* Media */}
           {activeTab === 'media' && (
-            <div className='flex flex-wrap mt-6 max-w-6xl'>
+            <div className='grid grid-cols-3 mt-6 max-w-6xl'>
               {
                 posts.filter((post) => post.image_urls.length > 0).map((post) => (
-                  <>
+                  <React.Fragment key={post._id}>
                     {post.image_urls.map((image, index) => (
-                      <Link
-                        target='_blank'
-                        to={image}
+                      <div
                         key={index}
-                        className='relative group'
+                        className='relative group border border-gray-200'
                       >
                         <img
                           src={image}
-                          key={index}
-                          className='w-64 aspect-video object-cover'
+                          className='w-full h-64 object-contain'
                           alt=""
                         />
-                        <p className='absolute bottom-0 right-0 text-xs p-1 px-3 backdrop-blur-xl text-white opacity-0 group-hover:opacity-100 transition duration-300'>
-                          Posted {moment(post.createdAt).fromNow()}
-                        </p>
-                      </Link>
+                      </div>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))
               }
+            </div>
+          )}
+
+          {/* Likes Tab */}
+          {activeTab === 'likes' && (
+            <div className='mt-6 flex flex-col items-center gap-6 w-full'>
+              {likedPosts.length > 0 ? (
+                likedPosts.map((post) => (
+                  <PostCard
+                    key={post._id}
+                    post={post}
+                    onDelete={refreshProfileData}
+                    reloadPosts={refreshProfileData}
+                  />
+                ))
+              ) : (
+                <div className='text-center text-gray-500 mt-8 font-medium'>
+                  No liked posts yet.
+                </div>
+              )}
             </div>
           )}
 
