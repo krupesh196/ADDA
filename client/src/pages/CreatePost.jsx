@@ -73,7 +73,7 @@ const CreatePost = () => {
                         <img
                             src={user.profile_picture}
                             alt=""
-                            className='w-12 h-12 object-coverobject-cover rounded-full shadow'
+                            className='w-12 h-12 object-cover rounded-full shadow'
                         />
                         <div>
                             <h2 className='font-semibold'>{user.full_name}</h2>
