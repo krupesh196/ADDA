@@ -67,7 +67,7 @@ const StoriesBar = () => {
                             <img
                                 src={story.user.profile_picture}
                                 alt=""
-                                className='absolute size-8 top-3 left-3 z-10 rounded-full ring ring-gray-100 shadow'
+                                className='absolute object-cover size-8 top-3 left-3 z-10 rounded-full ring ring-gray-100 shadow'
                             />
                             <p className='text-white absolute bottom-1 right-2 z-10 text-xs'>
                                 {moment(story.createdAt).fromNow()}
