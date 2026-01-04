@@ -20,7 +20,7 @@ const Notification = ({ t, message }) => {
                     <img
                         src={message.from_user_id.profile_picture}
                         alt=""
-                        className='h-10 w-10 rounded-full flex-shrink-0'
+                        className='h-10 w-10 rounded-full flex-shrink-0 object-cover'
                     />
                     <div className='ml-3 flex-1'>
                         <p className='text-sm font-bold text-gray-900'>
